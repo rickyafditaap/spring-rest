@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1, shrink-to-fit=no" name="viewport">
+    <link href="favicon.ico" rel="shortcut icon">
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/datatables.min.css" rel="stylesheet">
+    <link href="css/datepicker.min.css" rel="stylesheet">
+    <link href="css/fontawesome.min.css" rel="stylesheet">
+    <style>
+        #list-students tbody tr {
+            cursor: pointer;
+        }
+
+        #list-students tbody tr.selected {
+            background-color: lightslategrey;
+        }
+    </style>
+    <title>Spring REST</title>
+</head>
+<body class="bg-light p-4">
+<div class="row">
+    <div class="col-12 col-md-3">
+        <div class="spinner-border text-secondary" id="spinner-departments" role="status"></div>
+        <div class="list-group d-none" id="list-departments"></div>
+    </div>
+    <div class="col-12 col-md-9">
+        <div class="spinner-border text-secondary d-none" id="spinner-students" role="status"></div>
+        <div class="card d-none" id="card-students">
+            <div class="card-header bg-transparent">
+                <button class="btn btn-success" data-target="#modal-create-student" data-toggle="modal">
+                    <i class="fas fa-user-plus"></i>
+                </button>
+                <div class="float-right">
+                    <a class="btn btn-danger d-none" href="" id="button-delete-student">
+                        <i class="fas fa-user-minus"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-bordered table-hover w-100" id="list-students">
+                    <thead>
+                    <tr>
+                        <th>NIM</th>
+                        <th>Nama</th>
+                        <th>Tanggal Lahir</th>
+                        <th>Jenis Kelamin</th>
+                    </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="modal-create-student" role="dialog" tabindex="-1">
+    <div class="modal-dialog modal-dialog-scrollable" role="document">
+        <div class="modal-content bg-light">
+            <div class="modal-header py-2 bg-transparent">
+                <button class="close" data-dismiss="modal">
+                    <span><i class="fas fa-times"></i></span>
+                </button>
+            </div>
+            <form class="needs-validation" id="form-create-student" novalidate>
+                <div class="modal-body bg-transparent">
+                    <div class="form-group">
+                        <label class="font-weight-bold" for="id">NIM</label>
+                        <input class="form-control"
+                               id="id"
+                               name="id"
+                               required
+                               type="number">
+                    </div>
+                    <div class="form-group">
+                        <label class="font-weight-bold" for="name">Nama</label>
+                        <input autocomplete="off"
+                               class="form-control"
+                               id="name"
+                               name="name"
+                               required
+                               type="text">
+                    </div>
+                    <div class="form-group">
+                        <label class="font-weight-bold" for="birth-date">Tanggal Lahir</label>
+                        <input autocomplete="off"
+                               class="form-control"
+                               id="birth-date"
+                               name="birthDate"
+                               required
+                               type="text">
+                    </div>
+                    <div class="form-group">
+                        <label class="font-weight-bold">Jenis Kelamin</label>
+                        <div class="custom-control custom-radio">
+                            <input class="custom-control-input"
+                                   id="male"
+                                   name="gender"
+                                   required
+                                   type="radio"
+                                   value="male">
+                            <label class="custom-control-label" for="male">Laki-laki</label>
+                        </div>
+                        <div class="custom-control custom-radio">
+                            <input class="custom-control-input"
+                                   id="female"
+                                   name="gender"
+                                   required
+                                   type="radio"
+                                   value="female">
+                            <label class="custom-control-label" for="female">Perempuan</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2 bg-transparent">
+                    <button class="btn btn-success" type="submit">Tambah</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script src="js/jquery.min.js"></script>
+<script src="js/bootstrap.min.js"></script>
+<script src="js/datatables.min.js"></script>
+<script src="js/datepicker.min.js"></script>
+<script src="js/datepicker.id.min.js"></script>
+<script>
+    $(document).ready(function () {
+        'use strict';
+        const URI_DEPARTMENTS = 'http://localhost:8080/departments';
+        const ENDPOINT_SEARCH = '/searchByName';
+        const DATE_INPUT_BIRTH_DAY_MIN = new Date('1991-01-01');
+        const DATE_INPUT_BIRTH_DAY_MAX = new Date('2001-12-31');
+        const CSS_DISPLAY_NONE = 'd-none';
+        const CSS_ACTIVE = 'active';
+        const CSS_SELECTED = 'selected';
+        const CSS_WAS_VALIDATED = 'was-validated';
+        const CSS_LIST_GROUP_ITEM = 'list-group-item list-group-item-action p-2';
+        const LOCALE_DATATABLES = {
+            sEmptyTable: 'Tidak ada data',
+            sLengthMenu: '_MENU_',
+            sInfo: '<b>_START_</b>-<b>_END_</b> dari <b>_TOTAL_</b> data',
+            sInfoEmpty: '<b>0</b> data',
+            sInfoPostFix: '',
+            sSearch: '',
+            sSearchPlaceholder: 'Pencarian',
+            sUrl: '',
+            oPaginate: {
+                sPrevious: '<i class="fas fa-angle-double-left"></i>',
+                sNext: '<i class="fas fa-angle-double-right"></i>'
+            }
+        };
+        const LOCALE_GENDER = {
+            male: 'Laki-laki',
+            female: 'Perempuan'
+        };
+        const LOCALE_MONTH = [
+            'Januari', 'Februari', 'Maret',
+            'April', 'Mei', 'Juni',
+            'Juli', 'Agustus', 'September',
+            'Oktober', 'November', 'Desember'
+        ];
+        let spinnerDepartments = $('#spinner-departments');
+        let spinnerStudents = $('#spinner-students');
+        let listDepartments = $('#list-departments');
+        let listStudents = $('#list-students');
+        let cardStudents = $('#card-students');
+        let modalCreateStudent = $('#modal-create-student');
+        let formCreateStudent = $('#form-create-student');
+        let inputStudentBirthDate = $('#birth-date');
+        let buttonUpdateStudent = $('#button-update-student');
+        let buttonDeleteStudent = $('#button-delete-student');
+        let tableStudents = null;
+        $.ajax({
+            type: 'GET',
+            url: URI_DEPARTMENTS,
+            success: function (response) {
+                let formatDate = function (date) {
+                    return date.getDate() +
+                        ' ' + LOCALE_MONTH[date.getMonth()] +
+                        ' ' + date.getFullYear();
+                };
+                let serverData = function (sSource, aoData, fnCallback) {
+                    let paramMap = {};
+                    aoData.forEach(function (element) {
+                        paramMap[element.name] = element.value
+                    });
+                    let pageLength = paramMap.length;
+                    let pageStart = paramMap.start;
+                    let pageNumber = (pageStart === 0) ? 0 : (pageStart / pageLength);
+                    let sortColumn = paramMap.columns[paramMap.order[0].column].data;
+                    let sortDirection = paramMap.order[0].dir;
+                    let paramUrl = [];
+                    paramUrl.push({name: 'size', value: pageLength});
+                    paramUrl.push({name: 'page', value: pageNumber});
+                    paramUrl.push({name: 'sort', value: sortColumn + ',' + sortDirection});
+                    let urlStudents = window.urlStudents;
+                    if (paramMap.search.value !== '') {
+                        paramUrl.push({name: 'keyword', value: paramMap.search.value});
+                        urlStudents = listStudents.attr('datasrc');
+                    }
+                    $.ajax({
+                        type: 'GET',
+                        url: urlStudents,
+                        data: paramUrl,
+                        success: function (response) {
+                            inputStudentBirthDate.datepicker({
+                                format: 'yyyy-mm-dd',
+                                startView: 2,
+                                maxViewMode: 2,
+                                language: 'id',
+                                orientation: 'top right',
+                                startDate: DATE_INPUT_BIRTH_DAY_MIN,
+                                endDate: DATE_INPUT_BIRTH_DAY_MAX
+                            });
+                            response.iTotalRecords = response.page.totalElements;
+                            response.iTotalDisplayRecords = response.page.totalElements;
+                            if (response._embedded == null) response._embedded = {studentList: []};
+                            {
+                                cardStudents.removeClass(CSS_DISPLAY_NONE);
+                                spinnerStudents.addClass(CSS_DISPLAY_NONE);
+                                buttonUpdateStudent.addClass(CSS_DISPLAY_NONE);
+                                buttonDeleteStudent.addClass(CSS_DISPLAY_NONE);
+                            }
+                            fnCallback(response);
+                        },
+                        error: function (response) {
+                            alert(response.status);
+                        }
+                    });
+                };
+                {
+                    spinnerDepartments.addClass(CSS_DISPLAY_NONE);
+                    listDepartments.removeClass(CSS_DISPLAY_NONE);
+                }
+                $.each(response._embedded.departmentList, function (index, value) {
+                    listDepartments.append($('<a>', {
+                        class: CSS_LIST_GROUP_ITEM,
+                        text: value.name,
+                        href: value._links.students.href,
+                        click: function (event) {
+                            event.preventDefault();
+                            {
+                                cardStudents.addClass(CSS_DISPLAY_NONE);
+                                spinnerStudents.removeClass(CSS_DISPLAY_NONE);
+                            }
+                            {
+                                listDepartments.children().removeClass(CSS_ACTIVE);
+                                $(this).addClass(CSS_ACTIVE);
+                            }
+                            window.activeDepartmentMenu = $(this);
+                            window.urlStudents = $(this).attr('href');
+                            formCreateStudent.attr('action', window.urlStudents);
+                            listStudents.attr('datasrc', (window.urlStudents + ENDPOINT_SEARCH));
+                            listStudents.DataTable().destroy();
+                            tableStudents = listStudents.DataTable({
+                                language: LOCALE_DATATABLES,
+                                ajax: {type: 'GET', url: $(this).attr('href')},
+                                sAjaxDataProp: '_embedded.studentList',
+                                columns: [
+                                    {data: 'id'},
+                                    {data: 'name'},
+                                    {
+                                        data: 'birthDate',
+                                        render: function (data, type) {
+                                            return type === 'display'
+                                                ? formatDate(new Date(data))
+                                                : data;
+                                        }
+                                    },
+                                    {
+                                        data: 'gender',
+                                        render: function (data) {
+                                            return LOCALE_GENDER[data];
+                                        }
+                                    }
+                                ],
+                                bServerSide: true,
+                                fnServerData: serverData
+                            });
+                        }
+                    }));
+                })
+            }
+        });
+        $('#list-students tbody').on('click', 'tr', function () {
+            if ($(this).hasClass(CSS_SELECTED)) {
+                $(this).removeClass(CSS_SELECTED);
+                buttonUpdateStudent.addClass(CSS_DISPLAY_NONE);
+                buttonDeleteStudent.addClass(CSS_DISPLAY_NONE);
+            } else {
+                let dataStudent = tableStudents.row(this).data();
+                tableStudents.$('tr.' + CSS_SELECTED).removeClass(CSS_SELECTED);
+                $(this).addClass(CSS_SELECTED);
+                buttonUpdateStudent.removeClass(CSS_DISPLAY_NONE);
+                buttonDeleteStudent.removeClass(CSS_DISPLAY_NONE);
+                buttonDeleteStudent.attr('href', dataStudent._links.self.href);
+            }
+        });
+        let formToJson = function ($form) {
+            let elementForm = $form.serializeArray();
+            let elementJson = {};
+            $.map(elementForm, function (element) {
+                elementJson[element['name']] = element['value'];
+            });
+            return JSON.stringify(elementJson);
+        };
+        formCreateStudent.submit(function (event) {
+            event.preventDefault();
+            let isFormStudentValid = true;
+            Array.prototype.filter.call(formCreateStudent, function (input) {
+                if (input.checkValidity() === false) {
+                    isFormStudentValid = isFormStudentValid && false;
+                    event.stopPropagation();
+                }
+                input.classList.add(CSS_WAS_VALIDATED);
+            });
+            if (isFormStudentValid) {
+                $.ajax({
+                    type: 'POST',
+                    url: $(this).attr('action'),
+                    data: formToJson($(this)),
+                    processData: false,
+                    contentType: 'application/json',
+                    success: function () {
+                        modalCreateStudent.modal('toggle');
+                        formCreateStudent.trigger('reset');
+                        formCreateStudent.removeClass(CSS_WAS_VALIDATED);
+                        window.activeDepartmentMenu.click();
+                    },
+                    error: function (response) {
+                        alert(response.status);
+                    }
+                });
+            }
+        });
+        buttonDeleteStudent.on('click', function (event) {
+            event.preventDefault();
+            $.ajax({
+                type: 'DELETE',
+                url: $(this).attr('href'),
+                processData: false,
+                contentType: 'application/json',
+                success: function () {
+                    $(this).attr('href', null);
+                    tableStudents.row('.' + CSS_SELECTED).remove().draw(false);
+                },
+                error: function (response) {
+                    alert(response.status);
+                }
+            });
+        });
+    });
+</script>
+</body>
+</html>
